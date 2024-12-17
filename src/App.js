@@ -4,23 +4,30 @@ import "./App.css";
 
 function App() {
   const [pokemons, setPokemons] = useState([]);
-  const [selectedPokemon, setSelectedPokemon] = useState(null);
 
-  // Récupère la liste de Pokémon depuis l'API
+  // Récupère la liste des Pokémon avec leurs noms français
   useEffect(() => {
     const fetchPokemons = async () => {
       try {
-        // PokeAPI avec paginage, nous récupérons 151 Pokémon pour l'exemple
-        const response = await axios.get('https://pokeapi.co/api/v2/pokemon?limit=151');
+        // Récupère les 151 Pokémon de l'API
+        const response = await axios.get("https://pokeapi.co/api/v2/pokemon?limit=151");
         const data = response.data.results;
-        
-        // Pour chaque Pokémon, on récupère ses détails et son image
+
+        // Pour chaque Pokémon, récupère ses détails + nom français
         const pokemonDetails = await Promise.all(
           data.map(async (pokemon) => {
             const pokemonData = await axios.get(pokemon.url);
+            const speciesData = await axios.get(
+              `https://pokeapi.co/api/v2/pokemon-species/${pokemonData.data.id}`
+            );
+
+            const frenchName = speciesData.data.names.find(
+              (entry) => entry.language.name === "fr"
+            );
+
             return {
-              name: pokemon.name,
-              image: pokemonData.data.sprites.front_default, // L'image de chaque Pokémon
+              name: frenchName ? frenchName.name : pokemon.name, // Nom en français
+              image: pokemonData.data.sprites.front_default,    // Image
             };
           })
         );
@@ -30,13 +37,23 @@ function App() {
         console.error("Erreur lors de la récupération des Pokémon", error);
       }
     };
-    
-    fetchPokemons();
-  }, []); // Exécution une fois au chargement du composant
 
-  // Affiche le nom du Pokémon lorsqu'on clique sur son image
-  const handleImageClick = (name) => {
-    setSelectedPokemon(name);
+    fetchPokemons();
+  }, []); // Exécution une fois au montage
+
+  // Fonction pour prononcer le nom du Pokémon
+  const speakPokemonName = (name) => {
+    if ("speechSynthesis" in window) {
+      const synth = window.speechSynthesis;
+      const utterance = new SpeechSynthesisUtterance(name); // Texte à prononcer
+
+      // Configuration de la langue française pour la prononciation
+      utterance.lang = "fr-FR";
+
+      synth.speak(utterance); // Déclenche la prononciation
+    } else {
+      console.error("La synthèse vocale n'est pas supportée par votre navigateur.");
+    }
   };
 
   return (
@@ -49,18 +66,13 @@ function App() {
             <img
               src={pokemon.image}
               alt={pokemon.name}
-              onClick={() => handleImageClick(pokemon.name)}
+              onClick={() => speakPokemonName(pokemon.name)} // Déclenche la prononciation
               className="pokemon-image"
+              style={{ cursor: "pointer" }}
             />
           </div>
         ))}
       </div>
-
-      {selectedPokemon && (
-        <div className="pokemon-name">
-          <h2>Nom du Pokémon : {selectedPokemon}</h2>
-        </div>
-      )}
     </div>
   );
 }
