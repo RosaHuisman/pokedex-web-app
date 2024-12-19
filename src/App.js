@@ -5,52 +5,56 @@ import "./App.css";
 function App() {
   const [pokemons, setPokemons] = useState([]);
 
-  // Récupère la liste des Pokémon avec leurs noms français
+  const generateRandomIds = (count, max) => {
+    const ids = new Set();
+    while (ids.size < count) {
+      const randomId = Math.floor(Math.random() * max) + 1;
+      ids.add(randomId);
+    }
+    return Array.from(ids);
+  };
+
   useEffect(() => {
     const fetchPokemons = async () => {
       try {
-        // Récupère les 151 Pokémon de l'API
-        const response = await axios.get("https://pokeapi.co/api/v2/pokemon?limit=151");
-        const data = response.data.results;
+        const randomIds = generateRandomIds(150, 1010);
 
-        // Pour chaque Pokémon, récupère ses détails + nom français
         const pokemonDetails = await Promise.all(
-          data.map(async (pokemon) => {
-            const pokemonData = await axios.get(pokemon.url);
+          randomIds.map(async (id) => {
+            const pokemonData = await axios.get(`https://pokeapi.co/api/v2/pokemon/${id}`);
             const speciesData = await axios.get(
-              `https://pokeapi.co/api/v2/pokemon-species/${pokemonData.data.id}`
+              `https://pokeapi.co/api/v2/pokemon-species/${id}`
             );
 
             const frenchName = speciesData.data.names.find(
               (entry) => entry.language.name === "fr"
             );
 
+            const types = pokemonData.data.types.map((typeInfo) => typeInfo.type.name);
+
             return {
-              name: frenchName ? frenchName.name : pokemon.name, // Nom en français
-              image: pokemonData.data.sprites.front_default,    // Image
+              name: frenchName ? frenchName.name : pokemonData.data.name,
+              image: pokemonData.data.sprites.front_default,
+              types,
             };
           })
         );
 
         setPokemons(pokemonDetails);
       } catch (error) {
-        console.error("Erreur lors de la récupération des Pokémon", error);
+        console.error("Erreur lors de la récupération des Pokémon aléatoires", error);
       }
     };
 
     fetchPokemons();
-  }, []); // Exécution une fois au montage
+  }, []);
 
-  // Fonction pour prononcer le nom du Pokémon
   const speakPokemonName = (name) => {
     if ("speechSynthesis" in window) {
       const synth = window.speechSynthesis;
-      const utterance = new SpeechSynthesisUtterance(name); // Texte à prononcer
-
-      // Configuration de la langue française pour la prononciation
+      const utterance = new SpeechSynthesisUtterance(name);
       utterance.lang = "fr-FR";
-
-      synth.speak(utterance); // Déclenche la prononciation
+      synth.speak(utterance);
     } else {
       console.error("La synthèse vocale n'est pas supportée par votre navigateur.");
     }
@@ -58,18 +62,34 @@ function App() {
 
   return (
     <div className="App">
-      <h1>Liste des Pokémon</h1>
-      
+      <h1>Pokédex</h1>
+
       <div className="pokemon-list">
         {pokemons.map((pokemon, index) => (
-          <div key={index} className="pokemon-item">
+          <div 
+            key={index} 
+            className="pokemon-item"
+            onClick={() => speakPokemonName(pokemon.name)}
+          >
             <img
               src={pokemon.image}
               alt={pokemon.name}
-              onClick={() => speakPokemonName(pokemon.name)} // Déclenche la prononciation
-              className="pokemon-image"
-              style={{ cursor: "pointer" }}
+              className="pokemon-img"
             />
+            <div className="pokemon-infos">
+              <p className="pokemon-name">{pokemon.name}</p>
+              <div className="pokemon-types">
+                {pokemon.types.map((type, idx) => (
+                  <img
+                    key={idx}
+                    src={`/types/${type}.png`} // Chemin relatif à votre dossier public
+                    alt={type}
+                    title={type} // Affiche le nom du type au survol
+                    className="type-icon"
+                  />
+                ))}
+              </div>
+            </div>
           </div>
         ))}
       </div>
